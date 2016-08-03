@@ -1,0 +1,16 @@
+{
+    "inputMessageMetadata": {
+        "messagePayload": {
+            "connectorName": "#_custom_mule_metadata_type_#",
+            "typeId": "SellToMap"
+        }
+    },
+    "outputMessageMetadata": {
+        "messagePayload": {
+            "connectorName": "#_custom_mule_metadata_type_#",
+            "typeId": "SellToMap"
+        }
+    },
+    "id": "8417f231-ab4e-424b-9f74-729fb78eb5da",
+    "version": "5.2.0.0"
+}

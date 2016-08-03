@@ -1,0 +1,12 @@
+%dw 1.0
+%output application/java
+---
+[{
+	no: 1,
+	name: "????",
+	lmd: |2003-10-01|,
+	phoneno: "????",
+	accountstatuscode: "????",
+	analysiscode: "????",
+	salespersoncode: "????"
+}]

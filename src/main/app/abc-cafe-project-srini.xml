@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:jms="http://www.mulesoft.org/schema/mule/jms" xmlns:twitter="http://www.mulesoft.org/schema/mule/twitter" xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:metadata="http://www.mulesoft.org/schema/mule/metadata" xmlns:json="http://www.mulesoft.org/schema/mule/json" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:sfdc="http://www.mulesoft.org/schema/mule/sfdc" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/sfdc http://www.mulesoft.org/schema/mule/sfdc/current/mule-sfdc.xsd
+http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
+http://www.mulesoft.org/schema/mule/twitter http://www.mulesoft.org/schema/mule/twitter/current/mule-twitter.xsd
+http://www.mulesoft.org/schema/mule/jms http://www.mulesoft.org/schema/mule/jms/current/mule-jms.xsd
+http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd">
+    <http:listener-config name="HTTP_Listener_Configuration" host="0.0.0.0" port="8081" doc:name="HTTP Listener Configuration"/>
+    <sfdc:config name="Salesforce__Basic_Authentication" username="${sfdc.user}" password="${sfdc.password}" securityToken="${sfdc.token}" doc:name="Salesforce: Basic Authentication"/>
+    <db:mysql-config name="MySQL_Configuration" host="${db.host}" port="${db.port}" user="${db.user}" password="${db.password}" database="${db.database}" doc:name="MySQL Configuration"/>
+    <twitter:config name="Twitter__Configuration" accessKey="${twitter.accesstoken}" accessSecret="${twitter.accesssecret}" consumerKey="${twitter.consumerkey}" consumerSecret="${twitter.consumersecret}" doc:name="Twitter: Configuration"/>
+    <jms:activemq-connector name="Active_MQ" username="admin" password="admin" brokerURL="tcp://localhost:61616" validateConnections="true" doc:name="Active MQ"/>
+    <flow name="abc-cafe-project-srini-bill">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/billto" allowedMethods="GET" doc:name="HTTP"/>
+        <sfdc:query config-ref="Salesforce__Basic_Authentication" query="dsql:SELECT Account_Status_Code__c,Analysis_Code_1__c,Last_Date_Modified__c,Name,No__c,OwnerId,Phone_No__c,Salesperson_Code__c FROM BillTo_Srini__c" doc:name="Salesforce"/>
+        <dw:transform-message metadata:id="ed5e65f1-a105-4aff-8b09-1f214539e05a" doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload map ((payload01 , indexOfPayload01) -> {
+	no: payload01.No__c,
+	name: payload01.Name,
+	lmd: payload01.Last_Date_Modified__c,
+	phoneno: payload01.Phone_No__c,
+	accountstatuscode: payload01.Account_Status_Code__c,
+	analysiscode: payload01.Analysis_Code_1__c,
+	salespersoncode: payload01.Salesperson_Code__c
+})]]></dw:set-payload>
+        </dw:transform-message>
+        <foreach doc:name="For Each">
+            <db:insert config-ref="MySQL_Configuration" doc:name="Database">
+                <db:parameterized-query><![CDATA[Insert into BillTo_Srini (No,Name,PhoneNo,AccountStatusCode,LastDateModified,SalespersonCode) values(#[payload.no], #[payload.name], #[payload.phoneno],#[payload.accountstatuscode],#[payload.lmd],#[payload.salespersoncode])]]></db:parameterized-query>
+            </db:insert>
+        </foreach>
+        <!-- <twitter:update-status config-ref="Twitter__Configuration" status="Bill To Customer data uploaded successfully" doc:name="Twitter"/> -->
+        <json:object-to-json-transformer doc:name="Object to JSON"/>
+        <jms:outbound-endpoint queue="test" connector-ref="Active_MQ" doc:name="JMS"/>
+        <logger message="#[payload]" level="INFO" doc:name="Logger"/>
+    </flow>
+    <flow name="abc-cafe-project-srini-sell">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/SellTo" allowedMethods="GET" doc:name="HTTP"/>
+        <sfdc:query config-ref="Salesforce__Basic_Authentication" query="dsql:SELECT Account_Status_Code__c,Address_2__c,Address__c,Analysis_Code_1__c,Analysis_Code_2__c,Bill_to_Customer_Number__c,City__c,Contact__c,Country__c,County__c,Last_Date_Modified__c,Name,No__c,Phone_Number__c,Postcode__c,Price_Card_Code__c,Salesperson_Code__c FROM SellTo_Srini__c" doc:name="Salesforce"/>
+        <dw:transform-message metadata:id="bc32c6f6-7719-401b-a3fe-c9f7ef2dd5dd" doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload map ((payload01 , indexOfPayload01) -> {
+	No: payload01.No__c + payload01.No__c,
+	Name: payload01.Name,
+	Address: payload01.Address__c,
+	Address2: payload01.Address_2__c,
+	City: payload01.City__c,
+	County: payload01.County__c,
+	Postcode: payload01.Postcode__c,
+	Country: payload01.Country__c,
+	PhoneNumber: payload01.Phone_Number__c,
+	Contact: payload01.Contact__c,
+	AccountStatusCode: payload01.Account_Status_Code__c,
+	SalespersonCode: payload01.Salesperson_Code__c,
+	AnalysisCode1: payload01.Analysis_Code_1__c,
+	AnalysisCode2: payload01.Analysis_Code_2__c,
+	LastDateModified: payload01.Last_Date_Modified__c,
+	PriceCardCode: payload01.Price_Card_Code__c,
+	BilltoCustomer: payload01.Bill_to_Customer_Number__c
+})]]></dw:set-payload>
+        </dw:transform-message>
+        <foreach doc:name="For Each">
+            <db:insert config-ref="MySQL_Configuration" doc:name="Database">
+                <db:parameterized-query><![CDATA[Insert into SellTo_Srini(No,Name,City,Postcode,PhoneNumber,AccountStatusCode,BilltoCustomer,SalespersonCode,LastDateModified,PriceCardCode) values(#[payload.No],#[payload.Name],#[payload.City],#[payload.Postcode],#[payload.PhoneNumber],#[payload.AccountStatusCode],#[payload.BilltoCustomer],#[payload.SalespersonCode],#[payload.LastDateModified],#[payload.PriceCardCode])]]></db:parameterized-query>
+            </db:insert>
+        </foreach>
+        <json:object-to-json-transformer doc:name="Object to JSON"/>
+        <twitter:update-status config-ref="Twitter__Configuration" status="Hello Srini!! Sell to Customer data uploaded successfully" doc:name="Twitter"/>
+        <logger message="Twitter message is sent..." level="INFO" doc:name="Logger"/>
+    </flow>
+    <flow name="abc-cafe-project-sriniFlow">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/machines" allowedMethods="GET" doc:name="HTTP"/>
+        <sfdc:query config-ref="Salesforce__Basic_Authentication" query="dsql:SELECT Concession_Unit_Type__c,Customer_No__c,Installed_Date__c,Location_of_Service_Item__c,Machine_Type_Code__c,No__c FROM Machine_Srini__c" doc:name="Salesforce"/>
+        <dw:transform-message metadata:id="ef35d24c-0041-4d81-96c7-e41566f5dd20" doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload map ((payload01 , indexOfPayload01) -> {
+	location: payload01.Location_of_Service_Item__c,
+	installedDate: payload01.Installed_Date__c,
+	concession: payload01.Concession_Unit_Type__c,
+	machineType: payload01.Machine_Type_Code__c,
+	no: payload01.No__c as :string,
+	customerNo: payload01.Customer_No__c
+})]]></dw:set-payload>
+        </dw:transform-message>
+        <foreach doc:name="For Each">
+            <db:insert config-ref="MySQL_Configuration" doc:name="Database">
+                <db:parameterized-query><![CDATA[Insert into Machine_Srini(No,MachineTypeCode,ConcessionType,CustomerCode,LocationOfService,InstalledDate) values(#[payload.no],#[payload.machineType],#[payload.concession],#[payload.customerNo],#[payload.location],#[payload.installedDate])]]></db:parameterized-query>
+            </db:insert>
+        </foreach>
+        <json:object-to-json-transformer doc:name="Object to JSON"/>
+        <jms:outbound-endpoint queue="test" connector-ref="Active_MQ" doc:name="JMS"/>
+        <logger message="#[message] ... Sent to Queue" level="INFO" doc:name="Logger"/>
+    </flow>
+</mule>
